@@ -1,21 +1,30 @@
--- Update Migration for New Features
+-- Update Migration for Admin and Themes
 
--- 1. Add new columns to registered_tokens
+-- 1. Add is_admin column
 ALTER TABLE registered_tokens
-ADD COLUMN IF NOT EXISTS avatar_url text,
-ADD COLUMN IF NOT EXISTS settings jsonb DEFAULT '{}'::jsonb,
-ADD COLUMN IF NOT EXISTS achievements jsonb DEFAULT '[]'::jsonb;
+ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT false;
 
--- 2. Create Leaderboard Function
--- Usage: supabase.rpc('get_leaderboard', { viewer_token: '...', period: 'weekly' })
+-- 2. Insert Admin User (Idempotent)
+INSERT INTO registered_tokens (token, user_name, is_admin, settings, achievements)
+VALUES (
+  'admin-key-2024',
+  'Admin',
+  true,
+  '{"theme": "default", "subjects": ["Coding", "Testing", "Everything"]}'::jsonb,
+  '["hello_world", "double_digit", "hattrick", "week_warrior", "monthly_master", "deep_work", "night_owl", "early_bird", "polymath", "specialist", "momentum_max", "perfect_week", "socialite", "cloud_bound", "centurion", "marathon", "consistent", "poma_pro", "level_25", "titan"]'::jsonb
+)
+ON CONFLICT (token) DO UPDATE
+SET is_admin = true;
 
+-- 3. Update get_leaderboard to include is_admin (optional, but good for display)
 CREATE OR REPLACE FUNCTION get_leaderboard(viewer_token text, period text DEFAULT 'all_time')
 RETURNS TABLE (
   rank bigint,
   user_name text,
   avatar_url text,
   total_minutes bigint,
-  is_me boolean
+  is_me boolean,
+  is_admin boolean
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -38,18 +47,20 @@ BEGIN
     SELECT
       rt.user_name,
       rt.avatar_url,
+      rt.is_admin,
       COALESCE(ut.total_minutes, 0) as total_minutes,
       RANK() OVER (ORDER BY COALESCE(ut.total_minutes, 0) DESC) as rank,
       rt.token
     FROM registered_tokens rt
-    JOIN user_totals ut ON rt.token = ut.token
+    LEFT JOIN user_totals ut ON rt.token = ut.token
   )
   SELECT
     r.rank,
     r.user_name,
     r.avatar_url,
     r.total_minutes,
-    (r.token = viewer_token) as is_me
+    (r.token = viewer_token) as is_me,
+    r.is_admin
   FROM ranked_users r
   ORDER BY r.rank ASC
   LIMIT 50;

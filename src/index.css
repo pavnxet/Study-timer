@@ -9,7 +9,7 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #171717; /* neutral-900 */
+  background-color: var(--bg-color, #171717); /* neutral-900 */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,7 +23,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #171717;
+  background-color: var(--bg-color, #171717);
+  transition: background-color 0.5s ease;
 }
 
 #root {
@@ -55,10 +56,28 @@ body {
   ry: 2;
 }
 
-.react-calendar-heatmap .color-scale-1 { fill: #4f46e5; opacity: 0.4; }
-.react-calendar-heatmap .color-scale-2 { fill: #4f46e5; opacity: 0.6; }
-.react-calendar-heatmap .color-scale-3 { fill: #4f46e5; opacity: 0.8; }
-.react-calendar-heatmap .color-scale-4 { fill: #4f46e5; opacity: 1.0; }
+.react-calendar-heatmap .color-scale-1 { fill: var(--accent-color, #4f46e5); opacity: 0.4; }
+.react-calendar-heatmap .color-scale-2 { fill: var(--accent-color, #4f46e5); opacity: 0.6; }
+.react-calendar-heatmap .color-scale-3 { fill: var(--accent-color, #4f46e5); opacity: 0.8; }
+.react-calendar-heatmap .color-scale-4 { fill: var(--accent-color, #4f46e5); opacity: 1.0; }
+
+/* Themes */
+[data-theme="theme:midnight"] {
+    --bg-color: #0f172a; /* slate-900 */
+    --accent-color: #3b82f6; /* blue-500 */
+}
+[data-theme="theme:forest"] {
+    --bg-color: #022c22; /* emerald-950 */
+    --accent-color: #10b981; /* emerald-500 */
+}
+[data-theme="theme:retro"] {
+    --bg-color: #083344; /* cyan-950 */
+    --accent-color: #06b6d4; /* cyan-500 */
+}
+[data-theme="theme:solar"] {
+    --bg-color: #451a03; /* amber-950 */
+    --accent-color: #f59e0b; /* amber-500 */
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar {
@@ -66,7 +85,7 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #171717;
+  background: var(--bg-color, #171717);
 }
 ::-webkit-scrollbar-thumb {
   background: #404040;

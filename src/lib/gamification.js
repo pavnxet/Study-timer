@@ -99,6 +99,12 @@ export const REWARD_ASSETS = {
         { id: 'preset:cat', name: 'Focused Cat', icon: 'cat' },
         { id: 'preset:coffee', name: 'Coffee Mug', icon: 'coffee' },
         { id: 'preset:book', name: 'Open Book', icon: 'book' }
+    ],
+    'UI Themes': [
+        { id: 'theme:midnight', name: 'Midnight Blue', color: '#1e3a8a' },
+        { id: 'theme:forest', name: 'Forest Moss', color: '#14532d' },
+        { id: 'theme:retro', name: 'Retro Terminal', color: '#0c4a6e' },
+        { id: 'theme:solar', name: 'Solarized', color: '#f59e0b' }
     ]
 }
 

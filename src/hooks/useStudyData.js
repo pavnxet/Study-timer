@@ -9,6 +9,7 @@ const getUserName = () => localStorage.getItem('user_name')
 const getAvatar = () => localStorage.getItem('avatar_url')
 const getSettings = () => JSON.parse(localStorage.getItem('user_settings') || '{}')
 const getAchievements = () => JSON.parse(localStorage.getItem('user_achievements') || '[]')
+const getIsAdmin = () => localStorage.getItem('is_admin') === 'true'
 
 export function useStudyData() {
   const [loading, setLoading] = useState(false)
@@ -58,7 +59,7 @@ export function useStudyData() {
 
       const { data, error } = await supabase
         .from('registered_tokens')
-        .select('user_name, avatar_url, settings, achievements')
+        .select('user_name, avatar_url, settings, achievements, is_admin')
         .eq('token', cleanToken)
         .single()
 
@@ -69,6 +70,7 @@ export function useStudyData() {
       // Session Hydration
       localStorage.setItem('sync_token', cleanToken)
       localStorage.setItem('user_name', data.user_name)
+      localStorage.setItem('is_admin', data.is_admin ? 'true' : 'false')
       if (data.avatar_url) localStorage.setItem('avatar_url', data.avatar_url)
       if (data.settings) localStorage.setItem('user_settings', JSON.stringify(data.settings))
       if (data.achievements) localStorage.setItem('user_achievements', JSON.stringify(data.achievements))
@@ -78,7 +80,8 @@ export function useStudyData() {
         userName: data.user_name,
         avatarUrl: data.avatar_url,
         settings: data.settings,
-        achievements: data.achievements
+        achievements: data.achievements,
+        isAdmin: data.is_admin
       }
     } catch (err) {
       console.error("Verification failed:", err)
@@ -95,6 +98,7 @@ export function useStudyData() {
     localStorage.removeItem('avatar_url')
     localStorage.removeItem('user_settings')
     localStorage.removeItem('user_achievements')
+    localStorage.removeItem('is_admin')
   }, [])
 
   // --- Settings & Profile Management ---
@@ -106,12 +110,13 @@ export function useStudyData() {
       if (!token) return {
           settings: getSettings(),
           achievements: getAchievements(),
-          avatarUrl: getAvatar()
+          avatarUrl: getAvatar(),
+          isAdmin: getIsAdmin()
       }
 
       const { data, error } = await supabase
         .from('registered_tokens')
-        .select('settings, avatar_url, achievements')
+        .select('settings, avatar_url, achievements, is_admin')
         .eq('token', token)
         .single()
 
@@ -121,12 +126,14 @@ export function useStudyData() {
           // Update local storage
           localStorage.setItem('user_settings', JSON.stringify(data.settings || {}))
           localStorage.setItem('user_achievements', JSON.stringify(data.achievements || []))
+          localStorage.setItem('is_admin', data.is_admin ? 'true' : 'false')
           if (data.avatar_url) localStorage.setItem('avatar_url', data.avatar_url)
 
           return {
               settings: data.settings || {},
               achievements: data.achievements || [],
-              avatarUrl: data.avatar_url
+              avatarUrl: data.avatar_url,
+              isAdmin: data.is_admin
           }
       }
     } catch (err) {
@@ -135,7 +142,8 @@ export function useStudyData() {
     return {
         settings: getSettings(),
         achievements: getAchievements(),
-        avatarUrl: getAvatar()
+        avatarUrl: getAvatar(),
+        isAdmin: getIsAdmin()
     }
   }, [])
 
@@ -384,6 +392,7 @@ export function useStudyData() {
     getAvatar,
     getSettings,
     getAchievements,
+    getIsAdmin,
     fetchSettings,
     updateSettings,
     updateAvatar,

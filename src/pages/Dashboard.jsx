@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [isGoalEditing, setIsGoalEditing] = useState(false)
   const [achievements, setAchievements] = useState([])
   const [avatarUrl, setAvatarUrl] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState('default')
 
   // Analytics State
   const [subjectData, setSubjectData] = useState([])
@@ -71,6 +73,12 @@ export default function Dashboard() {
     }
     if (settingsData.avatarUrl) {
         setAvatarUrl(settingsData.avatarUrl)
+    }
+    if (settingsData.isAdmin) {
+        setIsAdmin(true)
+    }
+    if (settingsData.settings && settingsData.settings.theme) {
+        setCurrentTheme(settingsData.settings.theme)
     }
 
     // Calculate basic stats
@@ -169,6 +177,12 @@ export default function Dashboard() {
       setAvatarUrl(presetId)
   }
 
+  const handleEquipTheme = async (themeId) => {
+      await updateSettings({ theme: themeId })
+      setCurrentTheme(themeId)
+      window.location.reload()
+  }
+
   const progressPercentage = Math.min(100, Math.round((stats.today / dailyGoal) * 100))
   const COLORS = ['#818cf8', '#34d399', '#f472b6', '#fbbf24', '#94a3b8'];
 
@@ -188,7 +202,10 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
                 <UserAvatar url={avatarUrl} className="w-12 h-12 rounded-full border-2 border-indigo-500 shadow-lg" fallbackText={userName || 'GU'} />
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Dashboard
+                        {isAdmin && <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded border border-red-500/50">ADMIN</span>}
+                    </h1>
                     <p className="text-neutral-400 mt-1">
                     {token && userName
                         ? `Welcome back, ${userName}`
@@ -336,8 +353,9 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                     {LEVEL_REWARDS.map((r, i) => {
-                        const isUnlocked = gamification.level >= r.min
+                        const isUnlocked = gamification.level >= r.min || isAdmin
                         const hasAssets = REWARD_ASSETS[r.type]
+                        const isTheme = r.type === 'UI Themes'
 
                         return (
                             <div key={i} className={cn("p-4 rounded-xl border flex flex-col gap-4 transition-all", isUnlocked ? "bg-neutral-800 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-neutral-800/50 border-neutral-700 opacity-70")}>
@@ -359,11 +377,18 @@ export default function Dashboard() {
                                         {hasAssets.map(asset => (
                                             <button
                                                 key={asset.id}
-                                                onClick={() => handleEquipAvatar(asset.id)}
-                                                className={cn("flex flex-col items-center gap-1 p-2 rounded hover:bg-neutral-700 transition-colors", avatarUrl === asset.id ? "bg-indigo-900/30 ring-1 ring-indigo-500" : "")}
+                                                onClick={() => isTheme ? handleEquipTheme(asset.id) : handleEquipAvatar(asset.id)}
+                                                className={cn(
+                                                    "flex flex-col items-center gap-1 p-2 rounded hover:bg-neutral-700 transition-colors",
+                                                    (isTheme ? currentTheme === asset.id : avatarUrl === asset.id) ? "bg-indigo-900/30 ring-1 ring-indigo-500" : ""
+                                                )}
                                             >
-                                                <UserAvatar url={asset.id} className="w-8 h-8 rounded-full" />
-                                                <span className="text-[10px] text-neutral-400">{asset.name}</span>
+                                                {isTheme ? (
+                                                    <div className="w-8 h-8 rounded-full border-2" style={{ backgroundColor: asset.color, borderColor: '#fff' }} />
+                                                ) : (
+                                                    <UserAvatar url={asset.id} className="w-8 h-8 rounded-full" />
+                                                )}
+                                                <span className="text-[10px] text-neutral-400 text-center leading-tight">{asset.name}</span>
                                             </button>
                                         ))}
                                     </div>
