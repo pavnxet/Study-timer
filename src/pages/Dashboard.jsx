@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import CalendarHeatmap from 'react-calendar-heatmap'
 import 'react-calendar-heatmap/dist/styles.css'
 import { Tooltip as ReactTooltip } from 'react-tooltip'
-import { subDays, startOfDay, startOfWeek, format, isSameDay, isAfter } from 'date-fns'
-import { Plus, Target, X, Calendar, Clock, BookOpen, TrendingUp, BarChart3, PieChart as PieChartIcon, Trophy, Flame, Share2, Crown } from 'lucide-react'
+import { subDays, startOfWeek, format, isSameDay, isAfter } from 'date-fns'
+import { Plus, Target, X, Calendar, Clock, BookOpen, TrendingUp, BarChart3, PieChart as PieChartIcon, Trophy, Flame, Share2, Crown, Info, Medal, Lock, Star, LayoutDashboard, Globe } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -13,13 +13,21 @@ import { toPng } from 'html-to-image'
 import { cn } from '../lib/utils'
 import { useStudyData } from '../hooks/useStudyData'
 import { getSubjectDistribution, getFocusVelocity, getSessionLengthDistribution, getHeatmapData } from '../lib/analytics'
-import { calculateXP, calculateLevel, calculateStreak, calculateMomentum, getRewardForLevel, xpForNextLevel } from '../lib/gamification'
+import { calculateXP, calculateLevel, calculateStreak, calculateMomentum, getRewardForLevel, LEVEL_REWARDS } from '../lib/gamification'
+import { ACHIEVEMENTS } from '../lib/achievements'
+import { fetchLeaderboard } from '../lib/leaderboard'
 
 export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState('overview')
   const [stats, setStats] = useState({ today: 0, week: 0 })
+  const [leaderboard, setLeaderboard] = useState([])
+  const [leaderboardPeriod, setLeaderboardPeriod] = useState('weekly')
   const [heatmapValues, setHeatmapValues] = useState([])
   const [dailyGoal, setDailyGoal] = useState(120)
+  const [subjects, setSubjects] = useState(['Coding', 'Math', 'Reading', 'Writing', 'Other'])
   const [isGoalEditing, setIsGoalEditing] = useState(false)
+  const [achievements, setAchievements] = useState([])
+  const [avatarUrl, setAvatarUrl] = useState(null)
 
   // Analytics State
   const [subjectData, setSubjectData] = useState([])
@@ -38,18 +46,34 @@ export default function Dashboard() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
-  const { fetchSessions, saveSession, loading, getUserName, getToken } = useStudyData()
+  const { fetchSessions, saveSession, fetchSettings, updateSettings, loading, getUserName, getToken } = useStudyData()
   const ticketRef = useRef(null)
 
   const token = getToken()
   const userName = getUserName()
 
-  const loadData = async () => {
-    const data = await fetchSessions()
+  const loadData = useCallback(async () => {
+    const [data, settingsData, lbData] = await Promise.all([
+        fetchSessions(),
+        fetchSettings(),
+        fetchLeaderboard(token, leaderboardPeriod)
+    ])
+
+    setLeaderboard(lbData)
+
+    if (settingsData.settings) {
+        if (settingsData.settings.dailyGoal) setDailyGoal(settingsData.settings.dailyGoal)
+        if (settingsData.settings.subjects && settingsData.settings.subjects.length > 0) setSubjects(settingsData.settings.subjects)
+    }
+    if (settingsData.achievements) {
+        setAchievements(settingsData.achievements)
+    }
+    if (settingsData.avatarUrl) {
+        setAvatarUrl(settingsData.avatarUrl)
+    }
 
     // Calculate basic stats
     const now = new Date()
-    const startOfToday = startOfDay(now)
     const startOfThisWeek = startOfWeek(now, { weekStartsOn: 1 })
 
     let todayMinutes = 0
@@ -88,19 +112,17 @@ export default function Dashboard() {
         momentum: calculateMomentum(data),
         reward: getRewardForLevel(level)
     })
-  }
+  }, [fetchSessions, fetchSettings, leaderboardPeriod, token])
 
   useEffect(() => {
-    loadData()
-    const savedGoal = localStorage.getItem('dailyGoal')
-    if (savedGoal) setDailyGoal(parseInt(savedGoal, 10))
-  }, [fetchSessions])
+    loadData() // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadData])
 
-  const handleGoalChange = (e) => {
+  const handleGoalChange = async (e) => {
       const val = parseInt(e.target.value, 10)
       if (!isNaN(val) && val > 0) {
           setDailyGoal(val)
-          localStorage.setItem('dailyGoal', val.toString())
+          await updateSettings({ dailyGoal: val })
       }
   }
 
@@ -157,13 +179,18 @@ export default function Dashboard() {
       {/* Header & Gamification Bar */}
       <div className="space-y-6">
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
-                <p className="text-neutral-400 mt-1">
-                {token && userName
-                    ? `Welcome back, ${userName}`
-                    : 'Local Guest Account'}
-                </p>
+            <div className="flex items-center gap-4">
+                {avatarUrl && (
+                    <img src={avatarUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500 shadow-lg" />
+                )}
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+                    <p className="text-neutral-400 mt-1">
+                    {token && userName
+                        ? `Welcome back, ${userName}`
+                        : 'Local Guest Account'}
+                    </p>
+                </div>
             </div>
             <div className="flex gap-2">
                 <button
@@ -183,13 +210,171 @@ export default function Dashboard() {
             </div>
         </header>
 
+        {/* Tabs */}
+        <div className="flex gap-4 border-b border-neutral-700 pb-1 mb-6">
+            <button
+                onClick={() => setActiveTab('overview')}
+                className={cn("text-sm font-medium pb-3 border-b-2 transition-colors flex items-center gap-2", activeTab === 'overview' ? "border-indigo-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-300")}
+            >
+                <LayoutDashboard className="w-4 h-4" /> Overview
+            </button>
+            <button
+                onClick={() => setActiveTab('achievements')}
+                className={cn("text-sm font-medium pb-3 border-b-2 transition-colors flex items-center gap-2", activeTab === 'achievements' ? "border-indigo-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-300")}
+            >
+                <Trophy className="w-4 h-4" /> Rewards & Achievements
+            </button>
+            <button
+                onClick={() => setActiveTab('leaderboard')}
+                className={cn("text-sm font-medium pb-3 border-b-2 transition-colors flex items-center gap-2", activeTab === 'leaderboard' ? "border-indigo-500 text-white" : "border-transparent text-neutral-400 hover:text-neutral-300")}
+            >
+                <Globe className="w-4 h-4" /> Global Ranking
+            </button>
+        </div>
+
+      {activeTab === 'leaderboard' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Globe className="w-6 h-6 text-blue-400" /> Global Leaderboard
+                  </h2>
+                  <div className="flex bg-neutral-800 p-1 rounded-lg border border-neutral-700">
+                      <button
+                          onClick={() => setLeaderboardPeriod('weekly')}
+                          className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", leaderboardPeriod === 'weekly' ? "bg-neutral-700 text-white shadow" : "text-neutral-400 hover:text-white")}
+                      >
+                          Weekly
+                      </button>
+                      <button
+                          onClick={() => setLeaderboardPeriod('all_time')}
+                          className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-all", leaderboardPeriod === 'all_time' ? "bg-neutral-700 text-white shadow" : "text-neutral-400 hover:text-white")}
+                      >
+                          All-Time
+                      </button>
+                  </div>
+              </div>
+
+              <div className="bg-neutral-800 rounded-xl border border-neutral-700 overflow-hidden">
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                          <thead className="bg-neutral-900/50 text-neutral-400 uppercase text-xs font-medium">
+                              <tr>
+                                  <th className="px-6 py-3 tracking-wider">Rank</th>
+                                  <th className="px-6 py-3 tracking-wider">User</th>
+                                  <th className="px-6 py-3 tracking-wider text-right">Total Focus</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-700">
+                              {leaderboard.length > 0 ? (
+                                  leaderboard.map((user) => (
+                                      <tr key={user.rank} className={cn("hover:bg-neutral-700/30 transition-colors", user.is_me ? "bg-indigo-900/20 border-l-2 border-indigo-500" : "")}>
+                                          <td className="px-6 py-4 font-medium text-neutral-300">
+                                              #{user.rank}
+                                              {user.rank <= 3 && <span className="ml-2 text-yellow-400">🏆</span>}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              <div className="flex items-center gap-3">
+                                                  {user.avatar_url ? (
+                                                      <img src={user.avatar_url} alt={user.user_name} className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
+                                                  ) : (
+                                                      <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300 border border-neutral-600">
+                                                          {user.user_name.slice(0, 2).toUpperCase()}
+                                                      </div>
+                                                  )}
+                                                  <span className={cn("font-medium", user.is_me ? "text-indigo-300" : "text-white")}>
+                                                      {user.user_name}
+                                                      {user.is_me && <span className="ml-2 text-[10px] bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">YOU</span>}
+                                                  </span>
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4 text-right font-mono text-neutral-300">
+                                              {Math.floor(user.total_minutes / 60)}h {user.total_minutes % 60}m
+                                          </td>
+                                      </tr>
+                                  ))
+                              ) : (
+                                  <tr>
+                                      <td colSpan="3" className="px-6 py-8 text-center text-neutral-500">
+                                          No ranking data available yet. Start studying to join the leaderboard!
+                                      </td>
+                                  </tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {activeTab === 'achievements' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Achievements Grid */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-yellow-500" /> Achievements
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ACHIEVEMENTS.map(ach => {
+                        const isUnlocked = achievements.includes(ach.id)
+                        return (
+                            <div key={ach.id} className={cn("p-4 rounded-xl border flex items-start gap-4 transition-all hover:scale-[1.02]", isUnlocked ? "bg-indigo-900/20 border-indigo-500/30" : "bg-neutral-800 border-neutral-700 opacity-60 grayscale")}>
+                                <div className="text-3xl bg-neutral-900/50 p-2 rounded-lg">{ach.icon}</div>
+                                <div className="flex-1">
+                                    <h4 className={cn("font-bold text-sm", isUnlocked ? "text-white" : "text-neutral-400")}>{ach.title}</h4>
+                                    <p className="text-xs text-neutral-500 mt-1 leading-snug">{ach.desc}</p>
+                                </div>
+                                {isUnlocked && <Medal className="w-5 h-5 text-yellow-400 shrink-0" />}
+                                {!isUnlocked && <Lock className="w-4 h-4 text-neutral-600 shrink-0" />}
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Level Rewards List */}
+            <div>
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-indigo-400" /> Level Progression
+                </h3>
+                <div className="space-y-2">
+                    {LEVEL_REWARDS.map((r, i) => {
+                        const isUnlocked = gamification.level >= r.min
+                        return (
+                            <div key={i} className={cn("p-4 rounded-xl border flex justify-between items-center transition-all", isUnlocked ? "bg-neutral-800 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-neutral-800/50 border-neutral-700 opacity-70")}>
+                                <div className="flex items-center gap-4">
+                                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center font-bold text-xs border", isUnlocked ? "bg-indigo-600 border-indigo-400 text-white" : "bg-neutral-700 border-neutral-600 text-neutral-500")}>
+                                        Lvl {r.min}
+                                    </div>
+                                    <div>
+                                        <div className={cn("font-bold text-sm", isUnlocked ? "text-white" : "text-neutral-400")}>{r.type}</div>
+                                        <div className="text-xs text-neutral-500">{r.desc}</div>
+                                    </div>
+                                </div>
+                                {isUnlocked ? <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" /> : <Lock className="w-4 h-4 text-neutral-600" />}
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'overview' && (
+      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Gamification Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Level Card */}
             <div className="bg-gradient-to-br from-indigo-900/50 to-neutral-800 p-6 rounded-xl border border-indigo-500/30 shadow-sm relative overflow-hidden">
                 <div className="flex justify-between items-start">
                     <div>
-                        <div className="text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">Current Level</div>
+                        <div className="flex items-center gap-1 text-indigo-300 text-xs font-bold uppercase tracking-wider mb-1">
+                            Current Level
+                            <Info
+                                className="w-3 h-3 cursor-help text-indigo-400/70 hover:text-indigo-300"
+                                data-tooltip-id="info-tooltip"
+                                data-tooltip-content="Earn 1 XP for every 1 minute of study."
+                            />
+                        </div>
                         <div className="text-3xl font-black text-white flex items-center gap-2">
                             {gamification.level}
                             <Crown className="w-6 h-6 text-yellow-400 fill-yellow-400" />
@@ -219,7 +404,14 @@ export default function Dashboard() {
                      </div>
                      <div>
                          <div className="text-3xl font-bold text-white">{gamification.streak} <span className="text-lg font-normal text-neutral-500">days</span></div>
-                         <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Current Streak</div>
+                         <div className="flex items-center gap-1 text-xs text-neutral-400 uppercase tracking-wider font-medium">
+                            Current Streak
+                            <Info
+                                className="w-3 h-3 cursor-help text-neutral-600 hover:text-neutral-400"
+                                data-tooltip-id="info-tooltip"
+                                data-tooltip-content="Calculated by consecutive days of logging at least one session; resets if a day is missed."
+                            />
+                         </div>
                      </div>
                  </div>
             </div>
@@ -232,12 +424,18 @@ export default function Dashboard() {
                      </div>
                      <div>
                          <div className="text-3xl font-bold text-white">{gamification.momentum} <span className="text-lg font-normal text-neutral-500">/ 100</span></div>
-                         <div className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Momentum Score</div>
+                         <div className="flex items-center gap-1 text-xs text-neutral-400 uppercase tracking-wider font-medium">
+                            Momentum Score
+                            <Info
+                                className="w-3 h-3 cursor-help text-neutral-600 hover:text-neutral-400"
+                                data-tooltip-id="info-tooltip"
+                                data-tooltip-content="A 0-100% score representing consistency over the last 30 days."
+                            />
+                         </div>
                      </div>
                  </div>
             </div>
         </div>
-      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -416,8 +614,17 @@ export default function Dashboard() {
                     id="heatmap-tooltip"
                     style={{ backgroundColor: "#171717", border: "1px solid #404040", zIndex: 50, whiteSpace: "pre-wrap" }}
                 />
+                <ReactTooltip
+                    id="info-tooltip"
+                    place="top"
+                    style={{ backgroundColor: "#262626", color: "#fff", border: "1px solid #404040", zIndex: 50, fontSize: "12px", maxWidth: "250px" }}
+                />
             </div>
         </div>
+      </div>
+      </div>
+      )}
+
       </div>
 
       {/* Manual Entry Modal */}
@@ -440,8 +647,8 @@ export default function Dashboard() {
                                 onChange={e => setManualForm({...manualForm, subject: e.target.value})}
                                 className="w-full bg-neutral-900 border border-neutral-600 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
                               >
-                                  {['Coding', 'Math', 'Reading', 'Writing', 'Other'].map(s => (
-                                      <option key={s} value={s}>{s}</option>
+                                  {subjects.map((s, idx) => (
+                                      <option key={`${s}-${idx}`} value={s}>{s}</option>
                                   ))}
                               </select>
                           </div>
@@ -503,21 +710,30 @@ export default function Dashboard() {
                  <p className="text-xs uppercase tracking-widest text-neutral-500">{format(new Date(), 'MMM dd, yyyy • hh:mm a')}</p>
              </div>
 
-             <div className="space-y-3 mb-6">
-                 <div className="flex justify-between text-sm">
-                     <span className="font-bold">STUDENT</span>
-                     <span className="uppercase">{userName || 'Guest'}</span>
-                 </div>
-                 <div className="flex justify-between text-sm">
-                     <span className="font-bold">LEVEL</span>
+             <div className="flex flex-col items-center mb-6">
+                {avatarUrl ? (
+                    <img src={avatarUrl} className="w-24 h-24 rounded-full border-4 border-neutral-900 object-cover mb-3 shadow-lg" />
+                ) : (
+                    <div className="w-24 h-24 rounded-full border-4 border-neutral-900 bg-neutral-200 flex items-center justify-center text-3xl font-black text-neutral-400 mb-3 shadow-lg">
+                        {userName ? userName.slice(0, 2).toUpperCase() : 'GU'}
+                    </div>
+                )}
+                <div className="text-2xl font-black uppercase tracking-tighter">{userName || 'Guest'}</div>
+                <div className="bg-neutral-900 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase mt-2">
+                    Global Rank #{leaderboard.find(u => u.is_me)?.rank || 'N/A'}
+                </div>
+             </div>
+
+             <div className="space-y-3 mb-6 font-bold">
+                 <div className="flex justify-between text-sm border-b border-dashed border-neutral-400 pb-2">
+                     <span>LEVEL</span>
                      <span>{gamification.level}</span>
                  </div>
-                 <div className="flex justify-between text-sm">
-                     <span className="font-bold">STREAK</span>
+                 <div className="flex justify-between text-sm border-b border-dashed border-neutral-400 pb-2">
+                     <span>STREAK</span>
                      <span>{gamification.streak} DAYS</span>
                  </div>
-                 <div className="border-t border-dashed border-neutral-400 my-2"></div>
-                 <div className="flex justify-between text-lg font-black">
+                 <div className="flex justify-between text-lg font-black pt-2">
                      <span>TOTAL FOCUS</span>
                      <span>{stats.today} MIN</span>
                  </div>

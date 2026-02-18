@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain } from 'lucide-react'
+import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain, Settings, X, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useStudyData } from '../hooks/useStudyData'
 
@@ -14,20 +14,43 @@ export default function Timer() {
 
   const [subject, setSubject] = useState('Coding')
   const [isSaving, setIsSaving] = useState(false)
-  const subjects = ['Coding', 'Math', 'Reading', 'Writing', 'Other']
+
+  // Settings State
+  const [subjects, setSubjects] = useState(['Coding', 'Math', 'Reading', 'Writing', 'Other'])
+  const [pomodoroSettings, setPomodoroSettings] = useState({ work: 25, shortBreak: 5, longBreak: 15 })
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Settings Form State
+  const [settingsForm, setSettingsForm] = useState({
+      subjects: [],
+      pomodoro: { work: 25, shortBreak: 5, longBreak: 15 }
+  })
 
   const startTimeRef = useRef(null)
   const accumulatedTimeRef = useRef(0)
   const intervalRef = useRef(null)
 
-  const { saveSession } = useStudyData()
+  const { saveSession, fetchSettings, updateSettings } = useStudyData()
 
-  // Durations in minutes
-  const POMODORO_WORK = 25
-  const POMODORO_SHORT_BREAK = 5
-  const POMODORO_LONG_BREAK = 15
+  // Load Settings
+  useEffect(() => {
+      const load = async () => {
+          const data = await fetchSettings()
+          if (data.settings) {
+              if (data.settings.subjects && data.settings.subjects.length > 0) {
+                  setSubjects(data.settings.subjects)
+              }
+              if (data.settings.pomodoro) {
+                  setPomodoroSettings(data.settings.pomodoro)
+                  // If we are not running, update remaining seconds based on new settings?
+                  // Only if we haven't started.
+              }
+          }
+      }
+      load()
+  }, [fetchSettings])
 
-  // Load state on mount
+  // Load Timer State on mount
   useEffect(() => {
     const savedState = localStorage.getItem('timerState')
     if (savedState) {
@@ -40,7 +63,7 @@ export default function Timer() {
         if (parsed.mode === 'pomodoro') {
             setPomodoroPhase(parsed.pomodoroPhase || 'work')
             setPomodoroSets(parsed.pomodoroSets || 0)
-            setRemainingSeconds(parsed.remainingSeconds ?? (POMODORO_WORK * 60))
+            setRemainingSeconds(parsed.remainingSeconds ?? (pomodoroSettings.work * 60))
         } else {
             setElapsedSeconds(parsed.accumulatedTime || 0)
             accumulatedTimeRef.current = parsed.accumulatedTime || 0
@@ -54,6 +77,7 @@ export default function Timer() {
         console.error("Error parsing timer state", e)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Save State Helper
@@ -70,6 +94,54 @@ export default function Timer() {
     }))
   }
 
+  const sendNotification = (title, body) => {
+      if (Notification.permission === 'granted') {
+          new Notification(title, { body })
+      }
+  }
+
+  const handlePomodoroComplete = async () => {
+      clearInterval(intervalRef.current)
+      setIsRunning(false)
+      startTimeRef.current = null
+      accumulatedTimeRef.current = 0 // Reset accumulated for next phase
+
+      if (pomodoroPhase === 'work') {
+          // Save Session
+          setIsSaving(true)
+          const result = await saveSession({
+              subject: subject,
+              duration_minutes: pomodoroSettings.work
+          })
+
+          if (result.newAchievements && result.newAchievements.length > 0) {
+              alert(`🏆 Achievement Unlocked: ${result.newAchievements.join(', ')}`)
+          }
+
+          setIsSaving(false)
+
+          const newSets = pomodoroSets + 1
+          setPomodoroSets(newSets)
+
+          // Determine next break
+          if (newSets % 4 === 0) {
+              setPomodoroPhase('longBreak')
+              setRemainingSeconds(pomodoroSettings.longBreak * 60)
+              sendNotification("Long Break Time!", `You've done 4 sets. Take ${pomodoroSettings.longBreak} minutes.`)
+          } else {
+              setPomodoroPhase('shortBreak')
+              setRemainingSeconds(pomodoroSettings.shortBreak * 60)
+              sendNotification("Break Time!", `Good job! Take ${pomodoroSettings.shortBreak} minutes.`)
+          }
+      } else {
+          // Break is over
+          setPomodoroPhase('work')
+          setRemainingSeconds(pomodoroSettings.work * 60)
+          sendNotification("Back to Work!", "Break is over. Ready to focus?")
+      }
+      // Note: We don't save paused state here because it's an auto-transition.
+  }
+
   // Interval Logic
   useEffect(() => {
     if (isRunning) {
@@ -84,20 +156,12 @@ export default function Timer() {
         } else {
             // Pomodoro Logic
             if (startTimeRef.current) {
-                // Calculate how much time has passed since start/resume
                 const delta = Math.floor((now - startTimeRef.current) / 1000)
-                // remainingSeconds state is the "start value" for this run.
-                // We need to store the "base remaining" when we pause/start.
-                // Actually, cleaner approach:
-                // accumulatedTimeRef for Pomodoro can store "seconds elapsed in this session".
-                // remaining = duration - (seconds elapsed).
-
-                // Let's reuse accumulatedTimeRef as "elapsed time in current phase"
                 const currentElapsedInPhase = delta + accumulatedTimeRef.current
 
-                let duration = POMODORO_WORK * 60
-                if (pomodoroPhase === 'shortBreak') duration = POMODORO_SHORT_BREAK * 60
-                if (pomodoroPhase === 'longBreak') duration = POMODORO_LONG_BREAK * 60
+                let duration = pomodoroSettings.work * 60
+                if (pomodoroPhase === 'shortBreak') duration = pomodoroSettings.shortBreak * 60
+                if (pomodoroPhase === 'longBreak') duration = pomodoroSettings.longBreak * 60
 
                 const newRemaining = duration - currentElapsedInPhase
 
@@ -115,59 +179,9 @@ export default function Timer() {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [isRunning, mode, pomodoroPhase]) // pomodoroSets not needed in dependency if handled in complete
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, mode, pomodoroPhase, pomodoroSettings])
 
-  const handlePomodoroComplete = async () => {
-      clearInterval(intervalRef.current)
-      setIsRunning(false)
-      startTimeRef.current = null
-      accumulatedTimeRef.current = 0 // Reset accumulated for next phase
-
-      if (pomodoroPhase === 'work') {
-          // Save Session
-          setIsSaving(true)
-          await saveSession({
-              subject: subject,
-              duration_minutes: POMODORO_WORK
-          })
-          setIsSaving(false)
-
-          const newSets = pomodoroSets + 1
-          setPomodoroSets(newSets)
-
-          // Determine next break
-          if (newSets % 4 === 0) {
-              setPomodoroPhase('longBreak')
-              setRemainingSeconds(POMODORO_LONG_BREAK * 60)
-              sendNotification("Long Break Time!", "You've done 4 sets. Take 15 minutes.")
-          } else {
-              setPomodoroPhase('shortBreak')
-              setRemainingSeconds(POMODORO_SHORT_BREAK * 60)
-              sendNotification("Break Time!", "Good job! Take 5 minutes.")
-          }
-      } else {
-          // Break is over
-          setPomodoroPhase('work')
-          setRemainingSeconds(POMODORO_WORK * 60)
-          sendNotification("Back to Work!", "Break is over. Ready to focus?")
-      }
-
-      // Update saved state (paused at start of new phase)
-      localStorage.removeItem('timerState') // Clear or update?
-      // Better to save the new state as "paused"
-      // We need to call saveState, but we need current values.
-      // State updates (setPomodoroPhase) are async.
-      // So we can't reliably saveState here with new values unless we calculate them.
-      // For now, let's rely on the user seeing the UI update.
-      // If they reload immediately, they might lose the "transition".
-      // But saving session is done.
-  }
-
-  const sendNotification = (title, body) => {
-      if (Notification.permission === 'granted') {
-          new Notification(title, { body })
-      }
-  }
 
   const handleStart = () => {
       if (mode === 'pomodoro' && Notification.permission === 'default') {
@@ -177,17 +191,6 @@ export default function Timer() {
       const now = Date.now()
       startTimeRef.current = now
       setIsRunning(true)
-
-      // For Pomodoro, we need to know what "remaining" was when we started to calculate accurately?
-      // No, `accumulatedTimeRef` holds "time elapsed so far in this phase".
-      // If we just started, accumulated is 0.
-      // If we resumed, accumulated is whatever was elapsed before.
-
-      // We need to make sure `accumulatedTimeRef` is correct.
-      // In Stopwatch, it's total elapsed.
-      // In Pomodoro, it's total elapsed *in this phase*.
-      // `saveState` saves `accumulatedTime`. `useEffect` restores it.
-
       saveState(true, now, accumulatedTimeRef.current, subject, mode, pomodoroPhase, pomodoroSets, remainingSeconds)
   }
 
@@ -201,10 +204,9 @@ export default function Timer() {
           if (mode === 'stopwatch') {
               setElapsedSeconds(accumulatedTimeRef.current)
           } else {
-              // Recalculate remaining based on total accumulated
-               let duration = POMODORO_WORK * 60
-               if (pomodoroPhase === 'shortBreak') duration = POMODORO_SHORT_BREAK * 60
-               if (pomodoroPhase === 'longBreak') duration = POMODORO_LONG_BREAK * 60
+               let duration = pomodoroSettings.work * 60
+               if (pomodoroPhase === 'shortBreak') duration = pomodoroSettings.shortBreak * 60
+               if (pomodoroPhase === 'longBreak') duration = pomodoroSettings.longBreak * 60
                setRemainingSeconds(duration - accumulatedTimeRef.current)
           }
       }
@@ -221,20 +223,17 @@ export default function Timer() {
       if (mode === 'stopwatch') {
           setElapsedSeconds(0)
       } else {
-          // Reset current phase duration
-          if (pomodoroPhase === 'work') setRemainingSeconds(POMODORO_WORK * 60)
-          else if (pomodoroPhase === 'shortBreak') setRemainingSeconds(POMODORO_SHORT_BREAK * 60)
-          else setRemainingSeconds(POMODORO_LONG_BREAK * 60)
+          if (pomodoroPhase === 'work') setRemainingSeconds(pomodoroSettings.work * 60)
+          else if (pomodoroPhase === 'shortBreak') setRemainingSeconds(pomodoroSettings.shortBreak * 60)
+          else setRemainingSeconds(pomodoroSettings.longBreak * 60)
       }
   }
 
   const handleModeToggle = () => {
-      // Switch mode and reset
       const newMode = mode === 'stopwatch' ? 'pomodoro' : 'stopwatch'
       setMode(newMode)
       handleReset()
-      // Note: handleReset uses current 'mode' state which hasn't updated yet in this closure.
-      // So we need to manually reset based on newMode.
+      // Manually set initial state for new mode
       setIsRunning(false)
       startTimeRef.current = null
       accumulatedTimeRef.current = 0
@@ -244,35 +243,30 @@ export default function Timer() {
           setElapsedSeconds(0)
       } else {
           setPomodoroPhase('work')
-          setRemainingSeconds(POMODORO_WORK * 60)
+          setRemainingSeconds(pomodoroSettings.work * 60)
       }
   }
 
   const handleFinish = async () => {
-    // Only for stopwatch. Pomodoro finishes automatically.
-    // Or maybe user wants to finish Pomodoro early? Usually we just reset.
-    // Let's keep Finish for stopwatch. For Pomodoro, it might be "Skip Phase" or just Reset.
-
     if (mode === 'pomodoro') {
-        // Treat as reset or maybe save partial?
-        // User briefing says: "Upon timer completion... adds Work duration".
-        // Partial Pomodoros usually don't count.
         handleReset()
         return
     }
-
     if (elapsedSeconds < 1) return
 
     setIsSaving(true)
     const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60))
 
-    const success = await saveSession({
+    const result = await saveSession({
         subject: subject,
         duration_minutes: durationMinutes
     })
 
-    if (success) {
+    if (result && result.success) {
       alert(`Session saved! ${durationMinutes} minutes of ${subject}.`)
+      if (result.newAchievements && result.newAchievements.length > 0) {
+          alert(`🏆 Achievement Unlocked: ${result.newAchievements.join(', ')}`)
+      }
       handleReset()
     } else {
       alert('Failed to save session. Please try again.')
@@ -297,7 +291,56 @@ export default function Timer() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
   }
 
-  // --- Effects for Title and Burnout ---
+  // Settings Logic
+  const openSettings = () => {
+      setSettingsForm({
+          subjects: [...subjects],
+          pomodoro: { ...pomodoroSettings }
+      })
+      setShowSettings(true)
+  }
+
+  const saveSettings = async () => {
+      const newSettings = {
+          subjects: settingsForm.subjects,
+          pomodoro: settingsForm.pomodoro
+      }
+      await updateSettings(newSettings)
+      setSubjects(newSettings.subjects)
+      setPomodoroSettings(newSettings.pomodoro)
+
+      // If user current subject is removed, reset to first available
+      if (!newSettings.subjects.includes(subject) && newSettings.subjects.length > 0) {
+          setSubject(newSettings.subjects[0])
+      }
+
+      setShowSettings(false)
+
+      // Reset timer if needed (optional, but good if durations changed)
+      if (!isRunning && mode === 'pomodoro') {
+          // If we are in pomodoro and not running, update displayed time to match new settings
+           if (pomodoroPhase === 'work') setRemainingSeconds(newSettings.pomodoro.work * 60)
+           else if (pomodoroPhase === 'shortBreak') setRemainingSeconds(newSettings.pomodoro.shortBreak * 60)
+           else setRemainingSeconds(newSettings.pomodoro.longBreak * 60)
+      }
+  }
+
+  const addSubject = () => {
+      setSettingsForm(prev => ({ ...prev, subjects: [...prev.subjects, 'New Subject'] }))
+  }
+
+  const removeSubject = (index) => {
+      const newSubs = settingsForm.subjects.filter((_, i) => i !== index)
+      setSettingsForm(prev => ({ ...prev, subjects: newSubs }))
+  }
+
+  const updateSubjectName = (index, val) => {
+      const newSubs = [...settingsForm.subjects]
+      newSubs[index] = val
+      setSettingsForm(prev => ({ ...prev, subjects: newSubs }))
+  }
+
+
   useEffect(() => {
       if (isRunning) {
           const timeStr = mode === 'stopwatch' ? formatTime(elapsedSeconds) : formatTime(remainingSeconds)
@@ -312,6 +355,15 @@ export default function Timer() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-8 animate-in fade-in duration-500 relative">
+
+      {/* Settings Button */}
+      <button
+        onClick={openSettings}
+        className="absolute top-0 right-0 p-2 text-neutral-400 hover:text-white transition-colors"
+        disabled={isRunning}
+      >
+          <Settings className="w-6 h-6" />
+      </button>
 
       {/* Mode Toggle */}
       <div className="flex bg-neutral-800 p-1 rounded-full border border-neutral-700">
@@ -352,8 +404,8 @@ export default function Timer() {
             isRunning && "opacity-50 cursor-not-allowed"
           )}
         >
-          {subjects.map((s) => (
-            <option key={s} value={s}>{s}</option>
+          {subjects.map((s, idx) => (
+            <option key={`${s}-${idx}`} value={s}>{s}</option>
           ))}
         </select>
         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 pointer-events-none" />
@@ -421,7 +473,7 @@ export default function Timer() {
       {/* Secondary Controls */}
       <div className={cn(
           "flex items-center space-x-8 transition-all duration-300 transform",
-          (!isRunning && (elapsedSeconds > 0 || (mode === 'pomodoro' && remainingSeconds < POMODORO_WORK * 60))) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          (!isRunning && (elapsedSeconds > 0 || (mode === 'pomodoro' && remainingSeconds < pomodoroSettings.work * 60))) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
       )}>
         <button
             onClick={handleReset}
@@ -447,6 +499,97 @@ export default function Timer() {
             </button>
         )}
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-neutral-800 border border-neutral-700 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="p-4 border-b border-neutral-700 flex justify-between items-center bg-neutral-800/50">
+                      <h3 className="font-semibold text-white">Timer Settings</h3>
+                      <button onClick={() => setShowSettings(false)} className="text-neutral-400 hover:text-white transition-colors">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-6 overflow-y-auto">
+
+                      {/* Pomodoro Settings */}
+                      <div className="space-y-3">
+                          <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Pomodoro Durations (min)</h4>
+                          <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-1">
+                                  <label className="text-xs text-neutral-400">Work</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={settingsForm.pomodoro.work}
+                                    onChange={(e) => setSettingsForm(prev => ({...prev, pomodoro: {...prev.pomodoro, work: parseInt(e.target.value) || 25}}))}
+                                    className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500"
+                                  />
+                              </div>
+                              <div className="space-y-1">
+                                  <label className="text-xs text-neutral-400">Short Break</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={settingsForm.pomodoro.shortBreak}
+                                    onChange={(e) => setSettingsForm(prev => ({...prev, pomodoro: {...prev.pomodoro, shortBreak: parseInt(e.target.value) || 5}}))}
+                                    className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500"
+                                  />
+                              </div>
+                              <div className="space-y-1">
+                                  <label className="text-xs text-neutral-400">Long Break</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={settingsForm.pomodoro.longBreak}
+                                    onChange={(e) => setSettingsForm(prev => ({...prev, pomodoro: {...prev.pomodoro, longBreak: parseInt(e.target.value) || 15}}))}
+                                    className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500"
+                                  />
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Subjects Management */}
+                      <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Subjects</h4>
+                            <button onClick={addSubject} className="text-indigo-400 hover:text-indigo-300 text-xs flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> Add
+                            </button>
+                          </div>
+                          <div className="space-y-2">
+                              {settingsForm.subjects.map((sub, idx) => (
+                                  <div key={idx} className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={sub}
+                                        onChange={(e) => updateSubjectName(idx, e.target.value)}
+                                        className="flex-1 bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-indigo-500"
+                                      />
+                                      <button
+                                        onClick={() => removeSubject(idx)}
+                                        className="text-neutral-500 hover:text-red-400 p-2"
+                                        disabled={settingsForm.subjects.length <= 1}
+                                      >
+                                          <Trash2 className="w-4 h-4" />
+                                      </button>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                  </div>
+                  <div className="p-4 border-t border-neutral-700 bg-neutral-800/50">
+                      <button
+                        onClick={saveSettings}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition-colors"
+                      >
+                          Save Settings
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   )
 }

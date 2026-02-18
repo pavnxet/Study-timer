@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle, QrCode } from 'lucide-react'
+import { useState } from 'react'
+import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle, QrCode, Upload, Camera } from 'lucide-react'
 import { useStudyData } from '../hooks/useStudyData'
 import { QRCodeCanvas } from 'qrcode.react'
 
@@ -12,8 +12,10 @@ export default function SyncSettings() {
   const [syncStatus, setSyncStatus] = useState(null)
   const [authError, setAuthError] = useState(null)
   const [showQR, setShowQR] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
-  const { syncLocalToCloud, registerUser, verifyToken, logout, loading } = useStudyData()
+  const { syncLocalToCloud, registerUser, verifyToken, logout, updateAvatar, getAvatar, loading } = useStudyData()
+  const [avatarUrl, setAvatarUrl] = useState(getAvatar())
 
   const handleRegister = async () => {
     if (!inputName.trim()) {
@@ -42,16 +44,56 @@ export default function SyncSettings() {
     if (result.success) {
       setToken(inputToken.trim())
       setUserName(result.userName)
+      setAvatarUrl(result.avatarUrl)
       setInputToken('')
     } else {
         setAuthError(result.message)
     }
   }
 
+  const handleAvatarUpload = async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+
+      setUploading(true)
+      const formData = new FormData()
+      formData.append('image', file)
+
+      try {
+          // Note: VITE_IMGBB_API_KEY must be set in .env
+          const apiKey = import.meta.env.VITE_IMGBB_API_KEY
+          if (!apiKey) {
+              alert("Please set VITE_IMGBB_API_KEY in .env to upload images.")
+              setUploading(false)
+              return
+          }
+
+          const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+              method: 'POST',
+              body: formData
+          })
+          const data = await res.json()
+
+          if (data.success) {
+              const url = data.data.url
+              await updateAvatar(url)
+              setAvatarUrl(url)
+          } else {
+              alert(`Upload failed: ${data.error?.message || 'Unknown error'}`)
+          }
+      } catch (err) {
+          console.error("Avatar upload error:", err)
+          alert("Failed to upload image.")
+      } finally {
+          setUploading(false)
+      }
+  }
+
   const handleLogout = () => {
     logout()
     setToken('')
     setUserName('')
+    setAvatarUrl(null)
     setShowQR(false)
   }
 
@@ -75,7 +117,28 @@ export default function SyncSettings() {
     <div className="flex flex-col items-center justify-center min-h-[80vh] text-white p-4 max-w-md mx-auto animate-in fade-in duration-500">
       <div className="bg-neutral-800 p-8 rounded-xl shadow-lg border border-neutral-700 w-full">
         <div className="text-center mb-8">
-          <Cloud className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
+          {token && avatarUrl ? (
+              <div className="relative w-20 h-20 mx-auto mb-4 group">
+                  <img src={avatarUrl} alt="Profile" className="w-full h-full rounded-full object-cover border-2 border-indigo-500" />
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                      <Camera className="w-6 h-6 text-white" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />
+                  </label>
+                  {uploading && <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-full"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/></div>}
+              </div>
+          ) : token ? (
+              <div className="relative w-20 h-20 mx-auto mb-4 bg-neutral-700 rounded-full flex items-center justify-center border-2 border-neutral-600 group">
+                  <User className="w-8 h-8 text-neutral-400" />
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                      <Upload className="w-6 h-6 text-white" />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />
+                  </label>
+                  {uploading && <div className="absolute inset-0 flex items-center justify-center bg-black/70 rounded-full"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/></div>}
+              </div>
+          ) : (
+              <Cloud className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
+          )}
+
           <h2 className="text-2xl font-bold">Sync Settings</h2>
           <p className="text-neutral-400 mt-2 text-sm">
             {token
