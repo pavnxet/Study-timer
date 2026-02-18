@@ -167,8 +167,8 @@ export default function Dashboard() {
   const COLORS = ['#818cf8', '#34d399', '#f472b6', '#fbbf24', '#94a3b8'];
 
   // XP Progress
-  const currentLevelXpStart = Math.pow(gamification.level, 2) * 100
-  const nextLevelXpStart = Math.pow(gamification.level + 1, 2) * 100
+  const currentLevelXpStart = Math.pow(gamification.level - 1, 2) * 100
+  const nextLevelXpStart = Math.pow(gamification.level, 2) * 100
   const xpInLevel = gamification.xp - currentLevelXpStart
   const xpNeeded = nextLevelXpStart - currentLevelXpStart
   const xpProgress = Math.min(100, Math.round((xpInLevel / xpNeeded) * 100))
