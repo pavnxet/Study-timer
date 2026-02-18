@@ -1,33 +1,55 @@
 import { useState, useEffect } from 'react'
-import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle } from 'lucide-react'
-import { v4 as uuidv4 } from 'uuid'
+import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle } from 'lucide-react'
 import { useStudyData } from '../hooks/useStudyData'
 
 export default function SyncSettings() {
   const [token, setToken] = useState(localStorage.getItem('sync_token') || '')
+  const [userName, setUserName] = useState(localStorage.getItem('user_name') || '')
   const [inputToken, setInputToken] = useState('')
+  const [inputName, setInputName] = useState('')
   const [copied, setCopied] = useState(false)
   const [syncStatus, setSyncStatus] = useState(null)
+  const [authError, setAuthError] = useState(null)
 
-  const { syncLocalToCloud } = useStudyData()
+  const { syncLocalToCloud, registerUser, verifyToken, logout, loading } = useStudyData()
 
-  const generateToken = () => {
-    const newToken = `study-${uuidv4().slice(0, 8)}`
-    localStorage.setItem('sync_token', newToken)
-    setToken(newToken)
-  }
+  const handleRegister = async () => {
+    if (!inputName.trim()) {
+      setAuthError("Please enter your name.")
+      return
+    }
 
-  const saveToken = () => {
-    if (inputToken.trim()) {
-      localStorage.setItem('sync_token', inputToken.trim())
-      setToken(inputToken.trim())
-      setInputToken('')
+    setAuthError(null)
+    const result = await registerUser(inputName.trim())
+
+    if (result.success) {
+      setToken(result.token)
+      setUserName(inputName.trim())
+      setInputName('')
+    } else {
+      setAuthError(result.message)
     }
   }
 
-  const clearToken = () => {
-    localStorage.removeItem('sync_token')
+  const handleVerify = async () => {
+    if (!inputToken.trim()) return
+
+    setAuthError(null)
+    const result = await verifyToken(inputToken.trim())
+
+    if (result.success) {
+      setToken(inputToken.trim())
+      setUserName(result.userName)
+      setInputToken('')
+    } else {
+        setAuthError(result.message)
+    }
+  }
+
+  const handleLogout = () => {
+    logout()
     setToken('')
+    setUserName('')
   }
 
   const copyToClipboard = () => {
@@ -54,21 +76,44 @@ export default function SyncSettings() {
           <h2 className="text-2xl font-bold">Sync Settings</h2>
           <p className="text-neutral-400 mt-2 text-sm">
             {token
-              ? "Cloud Sync is active. Your data is backed up."
+              ? `Signed in as ${userName}`
               : "Your data is only saved on this device."}
           </p>
         </div>
 
         {!token ? (
           <div className="space-y-6">
-            <div className="p-4 bg-neutral-700/30 rounded-lg border border-neutral-600">
-              <h3 className="font-medium mb-2">New User?</h3>
+            {authError && (
+                <div className="bg-red-900/50 border border-red-500/50 text-red-200 p-3 rounded-lg text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {authError}
+                </div>
+            )}
+
+            <div className="p-4 bg-neutral-700/30 rounded-lg border border-neutral-600 space-y-4">
+              <h3 className="font-medium">New User?</h3>
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Your Name</label>
+                <div className="flex gap-2">
+                    <div className="relative flex-1">
+                        <input
+                            type="text"
+                            placeholder="e.g. Alex"
+                            value={inputName}
+                            onChange={(e) => setInputName(e.target.value)}
+                            className="w-full bg-neutral-900 border border-neutral-600 rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                    </div>
+                </div>
+              </div>
               <button
-                onClick={generateToken}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2"
+                onClick={handleRegister}
+                disabled={loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Lock className="w-4 h-4" />
-                Generate Secret Key
+                {loading ? 'Creating...' : 'Create Identity & Key'}
               </button>
             </div>
 
@@ -92,10 +137,11 @@ export default function SyncSettings() {
                   className="flex-1 bg-neutral-900 border border-neutral-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <button
-                  onClick={saveToken}
-                  className="bg-neutral-600 hover:bg-neutral-500 text-white px-4 rounded-md transition-colors"
+                  onClick={handleVerify}
+                  disabled={loading}
+                  className="bg-neutral-600 hover:bg-neutral-500 text-white px-4 rounded-md transition-colors disabled:opacity-50"
                 >
-                  Save
+                  {loading ? '...' : 'Load'}
                 </button>
               </div>
             </div>
@@ -103,7 +149,7 @@ export default function SyncSettings() {
         ) : (
           <div className="space-y-6">
             <div className="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
-              <label className="text-xs text-indigo-300 font-medium uppercase tracking-wider block mb-2">Your Secret Key</label>
+              <label className="text-xs text-indigo-300 font-medium uppercase tracking-wider block mb-2">Your Identity Key</label>
               <div className="flex items-center gap-2 bg-neutral-900 p-3 rounded border border-neutral-700 font-mono text-sm break-all">
                 <span className="flex-1">{token}</span>
                 <button
@@ -115,7 +161,7 @@ export default function SyncSettings() {
                 </button>
               </div>
               <p className="text-xs text-neutral-400 mt-2">
-                ⚠️ Keep this key safe! You need it to access your data on other devices.
+                ⚠️ Keep this key safe! Use it to restore your profile "{userName}" on other devices.
               </p>
             </div>
 
@@ -135,11 +181,11 @@ export default function SyncSettings() {
             )}
 
             <button
-              onClick={clearToken}
+              onClick={handleLogout}
               className="w-full text-red-400 hover:text-red-300 hover:bg-red-900/20 py-2 px-4 rounded-md transition-colors flex items-center justify-center gap-2 text-sm"
             >
               <LogOut className="w-4 h-4" />
-              Stop Syncing (Logout)
+              Sign Out (Clear Key)
             </button>
           </div>
         )}

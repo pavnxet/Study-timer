@@ -1,11 +1,82 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { v4 as uuidv4 } from 'uuid'
 
 export function useStudyData() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const getToken = () => localStorage.getItem('sync_token')
+  const getUserName = () => localStorage.getItem('user_name')
+
+  // --- Identity Management ---
+
+  const registerUser = useCallback(async (name) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const newToken = `study-${uuidv4().slice(0, 8)}`
+
+      // Atomic Registration: Insert Name + Token into Registry
+      const { error: regError } = await supabase
+        .from('registered_tokens')
+        .insert({
+          token: newToken,
+          user_name: name
+        })
+
+      if (regError) throw regError
+
+      // Local Commitment
+      localStorage.setItem('sync_token', newToken)
+      localStorage.setItem('user_name', name)
+
+      return { success: true, token: newToken }
+    } catch (err) {
+      console.error("Registration failed:", err)
+      setError(err.message)
+      return { success: false, message: err.message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const verifyToken = useCallback(async (inputToken) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const cleanToken = inputToken.trim()
+
+      const { data, error } = await supabase
+        .from('registered_tokens')
+        .select('user_name')
+        .eq('token', cleanToken)
+        .single()
+
+      if (error || !data) {
+        throw new Error("Invalid Identity Key. Profile not found.")
+      }
+
+      // Session Hydration
+      localStorage.setItem('sync_token', cleanToken)
+      localStorage.setItem('user_name', data.user_name)
+
+      return { success: true, userName: data.user_name }
+    } catch (err) {
+      console.error("Verification failed:", err)
+      setError(err.message)
+      return { success: false, message: err.message }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('sync_token')
+    localStorage.removeItem('user_name')
+  }, [])
+
+  // --- Study Data Logic ---
 
   const fetchSessions = useCallback(async () => {
     setLoading(true)
@@ -30,7 +101,6 @@ export function useStudyData() {
       }
 
       // 3. Merge and Sort
-      // We combine local and cloud arrays.
       const all = [...local, ...cloud].sort((a, b) =>
         new Date(b.created_at) - new Date(a.created_at)
       )
@@ -94,7 +164,7 @@ export function useStudyData() {
     if (local.length === 0) return { success: true, message: "No local data to sync." }
 
     try {
-      // Prepare data for insertion (strip local IDs, or just map what we need)
+      // Prepare data for insertion
       const toInsert = local.map(s => ({
         subject: s.subject,
         duration_minutes: s.duration_minutes,
@@ -116,5 +186,16 @@ export function useStudyData() {
     }
   }, [])
 
-  return { fetchSessions, saveSession, syncLocalToCloud, loading, error }
+  return {
+    fetchSessions,
+    saveSession,
+    syncLocalToCloud,
+    registerUser,
+    verifyToken,
+    logout,
+    getUserName,
+    getToken,
+    loading,
+    error
+  }
 }

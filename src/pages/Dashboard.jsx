@@ -8,8 +8,10 @@ import { useStudyData } from '../hooks/useStudyData'
 export default function Dashboard() {
   const [stats, setStats] = useState({ today: 0, week: 0 })
   const [heatmapValues, setHeatmapValues] = useState([])
-  const { fetchSessions, loading } = useStudyData()
-  const token = localStorage.getItem('sync_token')
+  const { fetchSessions, loading, getUserName, getToken } = useStudyData()
+
+  const token = getToken()
+  const userName = getUserName()
 
   useEffect(() => {
     async function loadData() {
@@ -61,8 +63,8 @@ export default function Dashboard() {
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
         <p className="text-neutral-400 mt-1">
-          {token
-            ? `Synced Account: ${token.slice(0, 10)}...`
+          {token && userName
+            ? `Welcome back, ${userName}`
             : 'Local Guest Account (Data not synced)'}
         </p>
       </header>
