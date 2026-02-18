@@ -60,6 +60,7 @@ export default function Auth() {
 
     if (authError) {
       setError(authError.message)
+      // Explicitly reset on API errors so user can try again
       handleResetCaptcha()
     } else {
         // Successful login automatically updates session via onAuthStateChange in App.jsx
@@ -136,8 +137,8 @@ export default function Auth() {
                     ref={turnstileRef}
                     siteKey={TURNSTILE_SITE_KEY}
                     onSuccess={(token) => setCaptchaToken(token)}
-                    onError={() => setCaptchaToken(null)}
-                    onExpire={() => setCaptchaToken(null)}
+                    onError={() => handleResetCaptcha()}
+                    onExpire={() => handleResetCaptcha()}
                     options={{
                         theme: 'dark',
                         size: 'normal',
