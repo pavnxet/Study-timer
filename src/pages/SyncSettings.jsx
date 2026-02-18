@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle, QrCode, Upload, Camera } from 'lucide-react'
 import { useStudyData } from '../hooks/useStudyData'
 import { QRCodeCanvas } from 'qrcode.react'
+import UserAvatar from '../components/UserAvatar'
 
 export default function SyncSettings() {
   const [token, setToken] = useState(localStorage.getItem('sync_token') || '')
@@ -119,7 +120,7 @@ export default function SyncSettings() {
         <div className="text-center mb-8">
           {token && avatarUrl ? (
               <div className="relative w-20 h-20 mx-auto mb-4 group">
-                  <img src={avatarUrl} alt="Profile" className="w-full h-full rounded-full object-cover border-2 border-indigo-500" />
+                  <UserAvatar url={avatarUrl} className="w-full h-full rounded-full border-2 border-indigo-500" fallbackText={userName} />
                   <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                       <Camera className="w-6 h-6 text-white" />
                       <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploading} />

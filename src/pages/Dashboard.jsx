@@ -13,9 +13,10 @@ import { toPng } from 'html-to-image'
 import { cn } from '../lib/utils'
 import { useStudyData } from '../hooks/useStudyData'
 import { getSubjectDistribution, getFocusVelocity, getSessionLengthDistribution, getHeatmapData } from '../lib/analytics'
-import { calculateXP, calculateLevel, calculateStreak, calculateMomentum, getRewardForLevel, LEVEL_REWARDS } from '../lib/gamification'
+import { calculateXP, calculateLevel, calculateStreak, calculateMomentum, getRewardForLevel, LEVEL_REWARDS, REWARD_ASSETS } from '../lib/gamification'
 import { ACHIEVEMENTS } from '../lib/achievements'
 import { fetchLeaderboard } from '../lib/leaderboard'
+import UserAvatar from '../components/UserAvatar'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
@@ -46,7 +47,7 @@ export default function Dashboard() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
-  const { fetchSessions, saveSession, fetchSettings, updateSettings, loading, getUserName, getToken } = useStudyData()
+  const { fetchSessions, saveSession, fetchSettings, updateSettings, updateAvatar, loading, getUserName, getToken } = useStudyData()
   const ticketRef = useRef(null)
 
   const token = getToken()
@@ -163,6 +164,11 @@ export default function Dashboard() {
       }
   }
 
+  const handleEquipAvatar = async (presetId) => {
+      await updateAvatar(presetId)
+      setAvatarUrl(presetId)
+  }
+
   const progressPercentage = Math.min(100, Math.round((stats.today / dailyGoal) * 100))
   const COLORS = ['#818cf8', '#34d399', '#f472b6', '#fbbf24', '#94a3b8'];
 
@@ -180,9 +186,7 @@ export default function Dashboard() {
       <div className="space-y-6">
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-                {avatarUrl && (
-                    <img src={avatarUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover border-2 border-indigo-500 shadow-lg" />
-                )}
+                <UserAvatar url={avatarUrl} className="w-12 h-12 rounded-full border-2 border-indigo-500 shadow-lg" fallbackText={userName || 'GU'} />
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
                     <p className="text-neutral-400 mt-1">
@@ -274,13 +278,7 @@ export default function Dashboard() {
                                           </td>
                                           <td className="px-6 py-4">
                                               <div className="flex items-center gap-3">
-                                                  {user.avatar_url ? (
-                                                      <img src={user.avatar_url} alt={user.user_name} className="w-8 h-8 rounded-full object-cover border border-neutral-600" />
-                                                  ) : (
-                                                      <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300 border border-neutral-600">
-                                                          {user.user_name.slice(0, 2).toUpperCase()}
-                                                      </div>
-                                                  )}
+                                                  <UserAvatar url={user.avatar_url} className="w-8 h-8 rounded-full border border-neutral-600" fallbackText={user.user_name} />
                                                   <span className={cn("font-medium", user.is_me ? "text-indigo-300" : "text-white")}>
                                                       {user.user_name}
                                                       {user.is_me && <span className="ml-2 text-[10px] bg-indigo-900/50 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">YOU</span>}
@@ -339,18 +337,37 @@ export default function Dashboard() {
                 <div className="space-y-2">
                     {LEVEL_REWARDS.map((r, i) => {
                         const isUnlocked = gamification.level >= r.min
+                        const hasAssets = REWARD_ASSETS[r.type]
+
                         return (
-                            <div key={i} className={cn("p-4 rounded-xl border flex justify-between items-center transition-all", isUnlocked ? "bg-neutral-800 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-neutral-800/50 border-neutral-700 opacity-70")}>
-                                <div className="flex items-center gap-4">
-                                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center font-bold text-xs border", isUnlocked ? "bg-indigo-600 border-indigo-400 text-white" : "bg-neutral-700 border-neutral-600 text-neutral-500")}>
-                                        Lvl {r.min}
+                            <div key={i} className={cn("p-4 rounded-xl border flex flex-col gap-4 transition-all", isUnlocked ? "bg-neutral-800 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]" : "bg-neutral-800/50 border-neutral-700 opacity-70")}>
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="flex items-center gap-4">
+                                        <div className={cn("w-12 h-12 rounded-full flex items-center justify-center font-bold text-xs border", isUnlocked ? "bg-indigo-600 border-indigo-400 text-white" : "bg-neutral-700 border-neutral-600 text-neutral-500")}>
+                                            Lvl {r.min}
+                                        </div>
+                                        <div>
+                                            <div className={cn("font-bold text-sm", isUnlocked ? "text-white" : "text-neutral-400")}>{r.type}</div>
+                                            <div className="text-xs text-neutral-500">{r.desc}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className={cn("font-bold text-sm", isUnlocked ? "text-white" : "text-neutral-400")}>{r.type}</div>
-                                        <div className="text-xs text-neutral-500">{r.desc}</div>
-                                    </div>
+                                    {isUnlocked ? <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" /> : <Lock className="w-4 h-4 text-neutral-600" />}
                                 </div>
-                                {isUnlocked ? <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" /> : <Lock className="w-4 h-4 text-neutral-600" />}
+
+                                {isUnlocked && hasAssets && (
+                                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-neutral-700/50">
+                                        {hasAssets.map(asset => (
+                                            <button
+                                                key={asset.id}
+                                                onClick={() => handleEquipAvatar(asset.id)}
+                                                className={cn("flex flex-col items-center gap-1 p-2 rounded hover:bg-neutral-700 transition-colors", avatarUrl === asset.id ? "bg-indigo-900/30 ring-1 ring-indigo-500" : "")}
+                                            >
+                                                <UserAvatar url={asset.id} className="w-8 h-8 rounded-full" />
+                                                <span className="text-[10px] text-neutral-400">{asset.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )
                     })}
@@ -711,13 +728,7 @@ export default function Dashboard() {
              </div>
 
              <div className="flex flex-col items-center mb-6">
-                {avatarUrl ? (
-                    <img src={avatarUrl} className="w-24 h-24 rounded-full border-4 border-neutral-900 object-cover mb-3 shadow-lg" />
-                ) : (
-                    <div className="w-24 h-24 rounded-full border-4 border-neutral-900 bg-neutral-200 flex items-center justify-center text-3xl font-black text-neutral-400 mb-3 shadow-lg">
-                        {userName ? userName.slice(0, 2).toUpperCase() : 'GU'}
-                    </div>
-                )}
+                <UserAvatar url={avatarUrl} className="w-24 h-24 rounded-full border-4 border-neutral-900 mb-3 shadow-lg text-3xl" fallbackText={userName || 'GU'} />
                 <div className="text-2xl font-black uppercase tracking-tighter">{userName || 'Guest'}</div>
                 <div className="bg-neutral-900 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase mt-2">
                     Global Rank #{leaderboard.find(u => u.is_me)?.rank || 'N/A'}

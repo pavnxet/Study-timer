@@ -93,6 +93,15 @@ export function calculateMomentum(sessions) {
   return Math.min(100, Math.round((uniqueDays.size / 30) * 100))
 }
 
+export const REWARD_ASSETS = {
+    'Basic Avatars': [
+        { id: 'preset:sprout', name: 'Seedling', icon: 'sprout' },
+        { id: 'preset:cat', name: 'Focused Cat', icon: 'cat' },
+        { id: 'preset:coffee', name: 'Coffee Mug', icon: 'coffee' },
+        { id: 'preset:book', name: 'Open Book', icon: 'book' }
+    ]
+}
+
 export const LEVEL_REWARDS = [
     { min: 1, max: 15, type: 'Basic Avatars', desc: 'Fresh Start (Seedling), Focused Cat, Coffee Mug, Open Book' },
     { min: 16, max: 30, type: 'UI Themes', desc: 'Midnight Blue, Forest Moss, Retro Terminal, Solarized Light' },
