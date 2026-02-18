@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Loader2 } from 'lucide-react'
+import { getURL } from '../lib/utils'
 
 export default function Auth() {
   const [loading, setLoading] = useState(false)
@@ -15,10 +16,13 @@ export default function Auth() {
     setMessage(null)
     setError(null)
 
+    const redirectTo = getURL()
+    console.log('Redirecting to:', redirectTo)
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: redirectTo,
       },
     })
 
