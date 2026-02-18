@@ -32,5 +32,4 @@ export default defineConfig({
       }
     })
   ],
-  base: '/Study-timer/',
 })
