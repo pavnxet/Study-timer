@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle } from 'lucide-react'
+import { Cloud, Lock, Copy, LogOut, Check, ArrowUpCircle, User, AlertCircle, QrCode } from 'lucide-react'
 import { useStudyData } from '../hooks/useStudyData'
+import { QRCodeCanvas } from 'qrcode.react'
 
 export default function SyncSettings() {
   const [token, setToken] = useState(localStorage.getItem('sync_token') || '')
@@ -10,6 +11,7 @@ export default function SyncSettings() {
   const [copied, setCopied] = useState(false)
   const [syncStatus, setSyncStatus] = useState(null)
   const [authError, setAuthError] = useState(null)
+  const [showQR, setShowQR] = useState(false)
 
   const { syncLocalToCloud, registerUser, verifyToken, logout, loading } = useStudyData()
 
@@ -50,6 +52,7 @@ export default function SyncSettings() {
     logout()
     setToken('')
     setUserName('')
+    setShowQR(false)
   }
 
   const copyToClipboard = () => {
@@ -150,7 +153,8 @@ export default function SyncSettings() {
           <div className="space-y-6">
             <div className="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
               <label className="text-xs text-indigo-300 font-medium uppercase tracking-wider block mb-2">Your Identity Key</label>
-              <div className="flex items-center gap-2 bg-neutral-900 p-3 rounded border border-neutral-700 font-mono text-sm break-all">
+
+              <div className="flex items-center gap-2 bg-neutral-900 p-3 rounded border border-neutral-700 font-mono text-sm break-all mb-3">
                 <span className="flex-1">{token}</span>
                 <button
                   onClick={copyToClipboard}
@@ -160,6 +164,21 @@ export default function SyncSettings() {
                   {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
+
+              {showQR && (
+                  <div className="flex justify-center my-4 bg-white p-4 rounded-lg">
+                      <QRCodeCanvas value={token} size={150} />
+                  </div>
+              )}
+
+              <button
+                onClick={() => setShowQR(!showQR)}
+                className="w-full text-xs flex items-center justify-center gap-1 text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                  <QrCode className="w-3 h-3" />
+                  {showQR ? 'Hide QR Code' : 'Show QR Code'}
+              </button>
+
               <p className="text-xs text-neutral-400 mt-2">
                 ⚠️ Keep this key safe! Use it to restore your profile "{userName}" on other devices.
               </p>
