@@ -117,7 +117,8 @@ export function useStudyData() {
 
   const saveSession = useCallback(async (sessionData) => {
     const token = getToken()
-    const timestamp = new Date().toISOString()
+    // Use provided timestamp or current time
+    const timestamp = sessionData.created_at || new Date().toISOString()
 
     if (token) {
       // Sync Mode: Save to Supabase
