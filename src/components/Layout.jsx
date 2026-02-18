@@ -15,6 +15,9 @@ export default function Layout() {
           const { settings } = await fetchSettings()
           if (settings && settings.theme) {
               setCurrentTheme(settings.theme)
+              document.documentElement.setAttribute('data-theme', settings.theme)
+          } else {
+              document.documentElement.removeAttribute('data-theme')
           }
       }
       loadTheme()
@@ -40,7 +43,7 @@ export default function Layout() {
   ]
 
   return (
-    <div className="flex flex-col min-h-screen bg-neutral-900 text-white font-sans" data-theme={currentTheme}>
+    <div className="flex flex-col min-h-screen bg-neutral-900 text-white font-sans">
       {isOffline && (
           <div className="bg-amber-600 text-white text-xs font-medium text-center py-1 px-4 sticky top-0 z-50 flex items-center justify-center gap-2">
               <WifiOff className="w-3 h-3" />

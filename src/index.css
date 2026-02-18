@@ -9,7 +9,14 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: var(--bg-color, #171717); /* neutral-900 */
+
+  /* Default Theme (Neutral / Dark) */
+  --bg-color: #171717; /* neutral-900 */
+  --card-bg: #262626; /* neutral-800 */
+  --border-color: #404040; /* neutral-700 */
+  --accent-color: #4f46e5; /* indigo-600 */
+
+  background-color: var(--bg-color);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,8 +30,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: var(--bg-color, #171717);
-  transition: background-color 0.5s ease;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -48,7 +55,7 @@ body {
 }
 
 .react-calendar-heatmap .color-empty {
-  fill: #262626; /* neutral-800 */
+  fill: var(--card-bg);
 }
 
 .react-calendar-heatmap rect {
@@ -56,26 +63,34 @@ body {
   ry: 2;
 }
 
-.react-calendar-heatmap .color-scale-1 { fill: var(--accent-color, #4f46e5); opacity: 0.4; }
-.react-calendar-heatmap .color-scale-2 { fill: var(--accent-color, #4f46e5); opacity: 0.6; }
-.react-calendar-heatmap .color-scale-3 { fill: var(--accent-color, #4f46e5); opacity: 0.8; }
-.react-calendar-heatmap .color-scale-4 { fill: var(--accent-color, #4f46e5); opacity: 1.0; }
+.react-calendar-heatmap .color-scale-1 { fill: var(--accent-color); opacity: 0.4; }
+.react-calendar-heatmap .color-scale-2 { fill: var(--accent-color); opacity: 0.6; }
+.react-calendar-heatmap .color-scale-3 { fill: var(--accent-color); opacity: 0.8; }
+.react-calendar-heatmap .color-scale-4 { fill: var(--accent-color); opacity: 1.0; }
 
 /* Themes */
 [data-theme="theme:midnight"] {
     --bg-color: #0f172a; /* slate-900 */
+    --card-bg: #1e293b; /* slate-800 */
+    --border-color: #334155; /* slate-700 */
     --accent-color: #3b82f6; /* blue-500 */
 }
 [data-theme="theme:forest"] {
     --bg-color: #022c22; /* emerald-950 */
+    --card-bg: #064e3b; /* emerald-900 */
+    --border-color: #065f46; /* emerald-800 */
     --accent-color: #10b981; /* emerald-500 */
 }
 [data-theme="theme:retro"] {
     --bg-color: #083344; /* cyan-950 */
+    --card-bg: #164e63; /* cyan-900 */
+    --border-color: #155e75; /* cyan-800 */
     --accent-color: #06b6d4; /* cyan-500 */
 }
 [data-theme="theme:solar"] {
     --bg-color: #451a03; /* amber-950 */
+    --card-bg: #78350f; /* amber-900 */
+    --border-color: #92400e; /* amber-800 */
     --accent-color: #f59e0b; /* amber-500 */
 }
 
@@ -85,10 +100,10 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-color, #171717);
+  background: var(--bg-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: var(--border-color);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
