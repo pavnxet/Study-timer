@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Home, Timer as TimerIcon } from 'lucide-react'
+import { Home, Timer as TimerIcon, Settings } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function Layout() {
@@ -8,6 +8,7 @@ export default function Layout() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Timer', path: '/timer', icon: TimerIcon },
+    { name: 'Sync', path: '/settings', icon: Settings },
   ]
 
   return (

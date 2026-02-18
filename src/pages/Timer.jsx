@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { supabase } from '../lib/supabase'
+import { useStudyData } from '../hooks/useStudyData'
 
-export default function Timer({ session }) {
+export default function Timer() {
   const [isRunning, setIsRunning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [subject, setSubject] = useState('Coding')
@@ -13,6 +13,8 @@ export default function Timer({ session }) {
   const startTimeRef = useRef(null)
   const accumulatedTimeRef = useRef(0)
   const intervalRef = useRef(null)
+
+  const { saveSession } = useStudyData()
 
   // Load state on mount
   useEffect(() => {
@@ -101,27 +103,19 @@ export default function Timer({ session }) {
     setIsSaving(true)
     const durationMinutes = Math.max(1, Math.round(elapsedSeconds / 60))
 
-    try {
-      const { error } = await supabase
-        .from('study_sessions')
-        .insert({
-          user_id: session.user.id,
-          subject: subject,
-          duration_minutes: durationMinutes,
-          created_at: new Date().toISOString()
-        })
+    const success = await saveSession({
+        subject: subject,
+        duration_minutes: durationMinutes
+    })
 
-      if (error) throw error
-
-      // Success
+    if (success) {
       alert(`Session saved! ${durationMinutes} minutes of ${subject}.`)
       handleReset()
-    } catch (error) {
-      console.error('Error saving session:', error)
+    } else {
       alert('Failed to save session. Please try again.')
-    } finally {
-      setIsSaving(false)
     }
+
+    setIsSaving(false)
   }
 
   const handleSubjectChange = (e) => {

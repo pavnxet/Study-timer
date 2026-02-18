@@ -3,30 +3,17 @@ import CalendarHeatmap from 'react-calendar-heatmap'
 import 'react-calendar-heatmap/dist/styles.css'
 import { subDays, startOfDay, startOfWeek, format, isSameDay, isAfter } from 'date-fns'
 import { cn } from '../lib/utils'
-import { supabase } from '../lib/supabase'
+import { useStudyData } from '../hooks/useStudyData'
 
-export default function Dashboard({ session }) {
+export default function Dashboard() {
   const [stats, setStats] = useState({ today: 0, week: 0 })
   const [heatmapValues, setHeatmapValues] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { fetchSessions, loading } = useStudyData()
+  const token = localStorage.getItem('sync_token')
 
   useEffect(() => {
-    async function fetchStats() {
-        if (!session?.user?.id) return
-
-        setLoading(true)
-        const { data, error } = await supabase
-            .from('study_sessions')
-            .select('created_at, duration_minutes')
-            .eq('user_id', session.user.id)
-            .gte('created_at', subDays(new Date(), 365).toISOString()) // Fetch last year only for efficiency
-            .order('created_at', { ascending: true })
-
-        if (error) {
-            console.error('Error fetching stats:', error)
-            setLoading(false)
-            return
-        }
+    async function loadData() {
+        const data = await fetchSessions()
 
         // Calculate stats
         const now = new Date()
@@ -64,17 +51,20 @@ export default function Dashboard({ session }) {
 
         setStats({ today: todayMinutes, week: weekMinutes })
         setHeatmapValues(heatmapArray)
-        setLoading(false)
     }
 
-    fetchStats()
-  }, [session.user.id])
+    loadData()
+  }, [fetchSessions])
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-4xl mx-auto">
       <header>
         <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
-        <p className="text-neutral-400 mt-1">Welcome back, {session?.user?.email?.split('@')[0] || 'Scholar'}</p>
+        <p className="text-neutral-400 mt-1">
+          {token
+            ? `Synced Account: ${token.slice(0, 10)}...`
+            : 'Local Guest Account (Data not synced)'}
+        </p>
       </header>
 
       {/* Stats Grid */}
