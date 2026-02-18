@@ -101,10 +101,11 @@ export const REWARD_ASSETS = {
         { id: 'preset:book', name: 'Open Book', icon: 'book' }
     ],
     'UI Themes': [
-        { id: 'theme:midnight', name: 'Midnight Blue', color: '#1e3a8a' },
-        { id: 'theme:forest', name: 'Forest Moss', color: '#14532d' },
-        { id: 'theme:retro', name: 'Retro Terminal', color: '#0c4a6e' },
-        { id: 'theme:solar', name: 'Solarized', color: '#f59e0b' }
+        { id: 'theme:beautiful', name: 'Beautiful Jekyll', color: '#007BFF' },
+        { id: 'theme:chalk', name: 'Chalk', color: '#96cbfe' },
+        { id: 'theme:catppuccin', name: 'Catppuccin', color: '#cba6f7' },
+        { id: 'theme:happy', name: 'Happy Hues', color: '#6246ea' },
+        { id: 'theme:realtime', name: 'Realtime', color: '#ff8906' }
     ]
 }
 
