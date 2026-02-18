@@ -1,4 +1,4 @@
-import { startOfDay, subDays, isSameDay, format, differenceInDays } from 'date-fns'
+import { subDays, format } from 'date-fns'
 
 /**
  * Calculate total XP (Total Minutes)
@@ -17,8 +17,8 @@ export function calculateXP(sessions) {
  * @returns {number}
  */
 export function calculateLevel(xp) {
-  if (xp < 100) return 1
-  return Math.floor(Math.sqrt(xp / 100))
+  if (xp < 0) return 1
+  return Math.floor(Math.sqrt(xp / 100)) + 1
 }
 
 /**
@@ -27,7 +27,7 @@ export function calculateLevel(xp) {
  * @returns {number}
  */
 export function xpForNextLevel(currentLevel) {
-  return Math.pow(currentLevel + 1, 2) * 100
+  return Math.pow(currentLevel, 2) * 100
 }
 
 /**
@@ -91,6 +91,22 @@ export function calculateMomentum(sessions) {
 
   // Cap at 100% if they studied every day
   return Math.min(100, Math.round((uniqueDays.size / 30) * 100))
+}
+
+export const REWARD_ASSETS = {
+    'Basic Avatars': [
+        { id: 'preset:sprout', name: 'Seedling', icon: 'sprout' },
+        { id: 'preset:cat', name: 'Focused Cat', icon: 'cat' },
+        { id: 'preset:coffee', name: 'Coffee Mug', icon: 'coffee' },
+        { id: 'preset:book', name: 'Open Book', icon: 'book' }
+    ],
+    'UI Themes': [
+        { id: 'theme:beautiful', name: 'Beautiful Jekyll', color: '#007BFF' },
+        { id: 'theme:chalk', name: 'Chalk', color: '#96cbfe' },
+        { id: 'theme:catppuccin', name: 'Catppuccin', color: '#cba6f7' },
+        { id: 'theme:happy', name: 'Happy Hues', color: '#6246ea' },
+        { id: 'theme:realtime', name: 'Realtime', color: '#ff8906' }
+    ]
 }
 
 export const LEVEL_REWARDS = [

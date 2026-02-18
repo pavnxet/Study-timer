@@ -9,7 +9,14 @@
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #171717; /* neutral-900 */
+
+  /* Default Theme (Neutral / Dark) */
+  --bg-color: #171717; /* neutral-900 */
+  --card-bg: #262626; /* neutral-800 */
+  --border-color: #404040; /* neutral-700 */
+  --accent-color: #4f46e5; /* indigo-600 */
+
+  background-color: var(--bg-color);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -23,7 +30,8 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #171717;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -47,7 +55,7 @@ body {
 }
 
 .react-calendar-heatmap .color-empty {
-  fill: #262626; /* neutral-800 */
+  fill: var(--card-bg);
 }
 
 .react-calendar-heatmap rect {
@@ -55,10 +63,57 @@ body {
   ry: 2;
 }
 
-.react-calendar-heatmap .color-scale-1 { fill: #4f46e5; opacity: 0.4; }
-.react-calendar-heatmap .color-scale-2 { fill: #4f46e5; opacity: 0.6; }
-.react-calendar-heatmap .color-scale-3 { fill: #4f46e5; opacity: 0.8; }
-.react-calendar-heatmap .color-scale-4 { fill: #4f46e5; opacity: 1.0; }
+.react-calendar-heatmap .color-scale-1 { fill: var(--accent-color); opacity: 0.4; }
+.react-calendar-heatmap .color-scale-2 { fill: var(--accent-color); opacity: 0.6; }
+.react-calendar-heatmap .color-scale-3 { fill: var(--accent-color); opacity: 0.8; }
+.react-calendar-heatmap .color-scale-4 { fill: var(--accent-color); opacity: 1.0; }
+
+/* Themes */
+
+/* Beautiful Jekyll (Clean, Light) */
+[data-theme="theme:beautiful"] {
+    --bg-color: #F8F9FA;
+    --card-bg: #FFFFFF;
+    --border-color: #E9ECEF;
+    --accent-color: #007BFF;
+    color: #212529;
+}
+
+/* Chalk (Matte Dark) */
+[data-theme="theme:chalk"] {
+    --bg-color: #2b2a33;
+    --card-bg: #42414d;
+    --border-color: #52515e;
+    --accent-color: #96cbfe;
+    color: #d4d4d4;
+}
+
+/* Catppuccin (Mocha) */
+[data-theme="theme:catppuccin"] {
+    --bg-color: #1e1e2e;
+    --card-bg: #313244;
+    --border-color: #45475a;
+    --accent-color: #cba6f7;
+    color: #cdd6f4;
+}
+
+/* Happy Hues (Vibrant Light) */
+[data-theme="theme:happy"] {
+    --bg-color: #fffffe;
+    --card-bg: #d1d1e9;
+    --border-color: #b8b8d1;
+    --accent-color: #6246ea;
+    color: #2b2c34;
+}
+
+/* Realtime Colors (High Contrast Dark) */
+[data-theme="theme:realtime"] {
+    --bg-color: #0f0e17;
+    --card-bg: #1f1d2b;
+    --border-color: #2e2c3b;
+    --accent-color: #ff8906;
+    color: #fffffe;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar {
@@ -66,10 +121,10 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #171717;
+  background: var(--bg-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: var(--border-color);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {

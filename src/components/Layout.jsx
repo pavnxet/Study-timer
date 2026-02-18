@@ -2,10 +2,26 @@ import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Home, Timer as TimerIcon, Settings, WifiOff } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useState, useEffect } from 'react'
+import { useStudyData } from '../hooks/useStudyData'
 
 export default function Layout() {
   const location = useLocation()
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
+  const { fetchSettings } = useStudyData()
+  const [currentTheme, setCurrentTheme] = useState('default')
+
+  useEffect(() => {
+      const loadTheme = async () => {
+          const { settings } = await fetchSettings()
+          if (settings && settings.theme) {
+              setCurrentTheme(settings.theme)
+              document.documentElement.setAttribute('data-theme', settings.theme)
+          } else {
+              document.documentElement.removeAttribute('data-theme')
+          }
+      }
+      loadTheme()
+  }, [fetchSettings])
 
   useEffect(() => {
       const handleOnline = () => setIsOffline(false)
