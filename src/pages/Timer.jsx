@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain, Settings, X, Plus, Trash2 } from 'lucide-react'
+import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain, Settings, X, Plus, Trash2, PictureInPicture2 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useStudyData } from '../hooks/useStudyData'
+import PiPWindow from '../components/PiPWindow'
+import TimerPiPContent from '../components/TimerPiPContent'
 
 export default function Timer() {
   const [mode, setMode] = useState('stopwatch') // 'stopwatch' | 'pomodoro'
@@ -14,6 +16,9 @@ export default function Timer() {
 
   const [subject, setSubject] = useState('Coding')
   const [isSaving, setIsSaving] = useState(false)
+
+  // PiP State
+  const [pipWindow, setPipWindow] = useState(null)
 
   // Settings State
   const [subjects, setSubjects] = useState(['Coding', 'Math', 'Reading', 'Writing', 'Other'])
@@ -353,17 +358,58 @@ export default function Timer() {
 
   const isBurnout = mode === 'stopwatch' && elapsedSeconds > 120 * 60
 
+  const togglePiP = async () => {
+    if (!('documentPictureInPicture' in window)) return
+
+    if (pipWindow) {
+      pipWindow.close()
+      setPipWindow(null)
+    } else {
+      try {
+        const pip = await window.documentPictureInPicture.requestWindow({
+          width: 300,
+          height: 300,
+        })
+
+        // Handle user closing the PiP window manually
+        pip.addEventListener('pagehide', () => {
+          setPipWindow(null)
+        })
+
+        setPipWindow(pip)
+      } catch (error) {
+        console.error("Failed to open PiP window:", error)
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-8 animate-in fade-in duration-500 relative">
 
       {/* Settings Button */}
-      <button
-        onClick={openSettings}
-        className="absolute top-0 right-0 p-2 text-neutral-400 hover:text-white transition-colors"
-        disabled={isRunning}
-      >
-          <Settings className="w-6 h-6" />
-      </button>
+      <div className="absolute top-0 right-0 flex items-center space-x-2">
+         {/* PiP Toggle */}
+         {('documentPictureInPicture' in window) && (
+            <button
+                onClick={togglePiP}
+                className={cn(
+                    "p-2 transition-colors",
+                    pipWindow ? "text-indigo-400" : "text-neutral-400 hover:text-white"
+                )}
+                title="Toggle Mini Player"
+            >
+                <PictureInPicture2 className="w-6 h-6" />
+            </button>
+         )}
+
+         <button
+            onClick={openSettings}
+            className="p-2 text-neutral-400 hover:text-white transition-colors"
+            disabled={isRunning}
+         >
+            <Settings className="w-6 h-6" />
+         </button>
+      </div>
 
       {/* Mode Toggle */}
       <div className="flex bg-neutral-800 p-1 rounded-full border border-neutral-700">
@@ -589,6 +635,21 @@ export default function Timer() {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* PiP Window Portal */}
+      {pipWindow && (
+        <PiPWindow pipWindow={pipWindow}>
+            <TimerPiPContent
+                time={mode === 'stopwatch' ? formatTime(elapsedSeconds) : formatTime(remainingSeconds)}
+                phase={mode === 'pomodoro' ? pomodoroPhase : subject}
+                subject={subject}
+                isRunning={isRunning}
+                onToggle={isRunning ? handlePause : handleStart}
+                onFinish={handleFinish}
+                mode={mode}
+            />
+        </PiPWindow>
       )}
     </div>
   )
