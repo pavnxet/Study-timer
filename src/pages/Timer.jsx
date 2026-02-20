@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain, Settings, X, Plus, Trash2, PictureInPicture2 } from 'lucide-react'
+import { Play, Pause, Square, RotateCcw, ChevronDown, Loader2, Timer as TimerIcon, Coffee, Brain, Settings, X, Plus, Trash2, PictureInPicture2, SkipForward } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useStudyData } from '../hooks/useStudyData'
 import PiPWindow from '../components/PiPWindow'
@@ -43,7 +43,16 @@ export default function Timer() {
           const data = await fetchSettings()
           if (data.settings) {
               if (data.settings.subjects && data.settings.subjects.length > 0) {
-                  setSubjects(data.settings.subjects)
+                  const newSubjects = data.settings.subjects
+                  setSubjects(newSubjects)
+
+                  // Validate current subject against new list
+                  setSubject(prev => {
+                      if (!newSubjects.includes(prev)) {
+                          return newSubjects[0]
+                      }
+                      return prev
+                  })
               }
               if (data.settings.pomodoro) {
                   setPomodoroSettings(data.settings.pomodoro)
@@ -250,6 +259,19 @@ export default function Timer() {
           setPomodoroPhase('work')
           setRemainingSeconds(pomodoroSettings.work * 60)
       }
+  }
+
+  const handleSkipBreak = () => {
+      setIsRunning(false)
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      startTimeRef.current = null
+      accumulatedTimeRef.current = 0
+
+      setPomodoroPhase('work')
+      const newRemaining = pomodoroSettings.work * 60
+      setRemainingSeconds(newRemaining)
+
+      saveState(false, null, 0, subject, 'pomodoro', 'work', pomodoroSets, newRemaining)
   }
 
   const handleFinish = async () => {
@@ -519,7 +541,7 @@ export default function Timer() {
       {/* Secondary Controls */}
       <div className={cn(
           "flex items-center space-x-8 transition-all duration-300 transform",
-          (!isRunning && (elapsedSeconds > 0 || (mode === 'pomodoro' && remainingSeconds < pomodoroSettings.work * 60))) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+          ((!isRunning && (elapsedSeconds > 0 || (mode === 'pomodoro' && remainingSeconds < pomodoroSettings.work * 60))) || (mode === 'pomodoro' && pomodoroPhase !== 'work')) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
       )}>
         <button
             onClick={handleReset}
@@ -531,6 +553,18 @@ export default function Timer() {
             </div>
             <span className="text-xs font-medium">Reset</span>
         </button>
+
+        {mode === 'pomodoro' && pomodoroPhase !== 'work' && (
+            <button
+                onClick={handleSkipBreak}
+                className="flex flex-col items-center space-y-2 text-neutral-400 hover:text-indigo-400 transition-colors"
+            >
+                <div className="p-3 bg-neutral-800 rounded-full border border-neutral-700">
+                    <SkipForward className="w-5 h-5 fill-current" />
+                </div>
+                <span className="text-xs font-medium">Skip</span>
+            </button>
+        )}
 
         {mode === 'stopwatch' && (
             <button
